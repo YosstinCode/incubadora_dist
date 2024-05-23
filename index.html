@@ -94,7 +94,7 @@
             },
             methods: {
                 fetchData(apiUrl, chartData, chartId) {
-                    axios.get(apiUrl)
+                    axios.get(apiUrl, Headers = { 'Access-Control-Allow-Origin': '*' }, { crossdomain: true })
                         .then(response => {
                             const data = response.data;
                             if (data.length > 0) {
