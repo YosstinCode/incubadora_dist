@@ -1,14 +1,162 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-    <script type="module" crossorigin src="/assets/index-DG80LVmM.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-KEVGvbzj.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gráficos de Temperatura y Humedad</title>
+    <script src="vue@2.js"></script>
+    <script src="axios.min.js"></script>
+    <script src="chart.js"></script>
+    <script src="tailwind.js"></script>
+    <style>
+        #app {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .graficas {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+        }
+
+        .card {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            width: 600px;
+            height: 50vh;
+            max-height: 400px;
+            /* Limitar la altura del gráfico */
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <h1
+            class="mb-4 text-4xl font-bold leading-none tracking-tight text-gray-900 md:text-5xl lg:text-6xl dark:text-white">
+            Datos Incubadora</h1>
+        <section class="graficas">
+
+            <article class="card">
+                <h1
+                    class="mb-4 text-lg font-semibold leading-none tracking-tight text-gray-900 md:text-xl lg:text-2xl dark:text-white">
+                    <span
+                        class="underline underline-offset-3 decoration-4 decoration-pink-300 dark:decoration-pink-600">Temperatura</span>
+                </h1>
+                <canvas id="Temperatura"></canvas>
+            </article>
+            <article class="card">
+                <h1
+                    class="mb-4 text-lg font-semibold leading-none tracking-tight text-gray-900 md:text-xl lg:text-2xl dark:text-white">
+                    <span
+                        class="underline underline-offset-3 decoration-4 decoration-cyan-300 dark:decoration-cyan-600">Humedad</span>
+                </h1>
+                <canvas id="Humedad"></canvas>
+            </article>
+        </section>
+    </div>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                apiUrlTemperatura: 'http://localhost:3001/api/v1/graficas/data/linear/type/1?limit=1',
+                apiUrlHumedad: 'http://localhost:3001/api/v1/graficas/data/linear/type/2?limit=1',
+                chartDataTemperatura: [],
+                chartDataHumedad: [],
+                chartTemperatura: null,
+                chartHumedad: null,
+                maxDataLength: 15 // Definir el máximo de datos en el gráfico
+            },
+            mounted() {
+                this.fetchData(this.apiUrlTemperatura, this.chartDataTemperatura, 'Temperatura');
+                this.fetchData(this.apiUrlHumedad, this.chartDataHumedad, 'Humedad');
+                setInterval(() => {
+                    this.fetchData(this.apiUrlTemperatura, this.chartDataTemperatura, 'Temperatura');
+                    this.fetchData(this.apiUrlHumedad, this.chartDataHumedad, 'Humedad');
+                }, 1000);
+            },
+            methods: {
+                fetchData(apiUrl, chartData, chartId) {
+                    axios.get(apiUrl)
+                        .then(response => {
+                            const data = response.data;
+                            if (data.length > 0) {
+                                const value = parseFloat(data[0].y);
+                                // Verificar si se alcanzó el máximo de datos
+                                if (chartData.length > this.maxDataLength) {
+                                    chartData.shift(); // Eliminar el primer dato
+                                }
+                                chartData.push({
+                                    x: new Date(data[0].x).toLocaleString('en-US', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                    }), // Convertir tiempo a objeto de fecha
+                                    y: value
+                                });
+                                this.updateChart(chartData, chartId);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching data:', error);
+                        });
+                },
+                updateChart(chartData, chartId) {
+                    if (!this[chartId]) {
+                        const ctx = document.getElementById(chartId).getContext('2d');
+                        this[chartId] = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: chartData.map((data) => data.x), // Usar el tiempo como etiquetas
+                                datasets: [{
+                                    label: chartId,
+                                    data: chartData.map((data) => data.y), // Usar solo los valores y
+                                    backgroundColor: chartId === 'Humedad' ? 'rgba(0, 255, 255, 0.2)' : 'rgba(255, 99, 132, 0.2)', // Cyan para humedad, color por defecto para temperatura
+                                    borderColor: chartId === 'Humedad' ? 'rgba(0, 255, 255, 1)' : 'rgba(255, 99, 132, 1)', // Cyan para humedad, color por defecto para temperatura
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    yAxes: [{
+                                        ticks: {
+                                            beginAtZero: true
+                                        }
+                                    }]
+                                }
+                            }
+                        });
+                    } else {
+                        this[chartId].data.labels = chartData.map((data) => data.x); // Actualizar las etiquetas
+                        this[chartId].data.datasets[0].data = chartData.map((data) => data.y); // Actualizar los datos
+                        this[chartId].update();
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
 </html>
