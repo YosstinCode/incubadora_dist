@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gráficos de Temperatura y Humedad</title>
     <script src="vue@2.js"></script>
-    <script src="axios.min.js"></script>
     <script src="chart.js"></script>
     <script src="tailwind.js"></script>
     <style>
@@ -94,13 +93,14 @@
             },
             methods: {
                 fetchData(apiUrl, chartData, chartId) {
-                    axios.get(apiUrl, {
-                        headers: { 'Access-Control-Allow-Origin': '*' },
-                        crossdomain: true,
-                        mode: 'cors' // Agregar el modo CORS
-                    })
+                    fetch(apiUrl, { mode: 'cors' }) // Agregar el modo CORS
                         .then(response => {
-                            const data = response.data;
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
                             if (data.length > 0) {
                                 const value = parseFloat(data[0].y);
                                 // Verificar si se alcanzó el máximo de datos
